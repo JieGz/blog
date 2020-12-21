@@ -69,7 +69,7 @@ Executor是一个强大且非常灵活的异步执行框架，它以Runnable为�
 从整体看完Executor框架后，现在我们要开始，我们就采取自顶向下的方式详细深入地聊聊Executor了。
 
 #### Executor接口源码分析
-```
+```java
 public interface Executor {  
     /**
      * 在未来的那个时间点执行command任务，
@@ -80,12 +80,12 @@ public interface Executor {
 }
 ```
 像我们前面说的一样，Executor接口的主要实现的功能是，让任务的提交和任务的执行得到解耦，通常，Executor是用来代替显式创建线程的。比如：相比通过
-```
+```java
 //eg1:
 new Thread(new RunnableTask()).start().
 ```
 创建一组线程，更好的方式是：
-```
+```java
 //eg2:
 Executor executor = anExecutor;
 executor.execute(new RunnableTask1());
@@ -94,7 +94,7 @@ executor.execute(new RunnableTask2());
 ```
 为什么会更好？这个问题就充分体现了我们这篇文章一开始所讲的，为什么需要线程池技术这一个论点了。
 
-```
+```java
 但需要注意的一个点是：
 我们通过eg1方式一定是异步执行的。
 而eg2这种方式并不严格要求异步执行某个，比如下面的例子中，他会在调用线程中立即执行任务：
@@ -115,7 +115,7 @@ class DirectExecutor implements Executor {
 ```
 #### ExecutorService接口源码分析
 
-```
+```java
 public interface ExecutorService extends Executor {
 
     void shutdown();
@@ -161,7 +161,7 @@ ExecutorCompletionService类可以用来定义于这些方法，包括submit(),i
 
 AbstractExecutorService类提供了ExecutorService接口部分方法的默认实现，这个类使用了newTaskFor()方法返回的RunnableFuture对象实现了submit()，invokeAny()和invokeAll()方法，如果你熟悉Future体系，那在看源码就是水到渠成的事情了。如果你还不熟悉，我之前也写了一篇关于Future体系，深入分析的文章。
 [Future体系源码深度解析](https://www.jianshu.com/p/70de9fb543d8)  
-```
+```java
 public abstract class AbstractExecutorService implements ExecutorService {
     //通过runnable和一个value参数，创建一个FutureTask
     protected <T> RunnableFuture<T> newTaskFor(Runnable runnable, T value) {
@@ -177,7 +177,7 @@ public abstract class AbstractExecutorService implements ExecutorService {
 第一个方法中的value其实就是当你的任务执行完成时，你想要通过Future#get()拿到的预期的结果，而第二个方法就是借助了Callable接口，拿到了任务的执行结果。上面我提到的那篇文章有深入详细的分析。如果你感兴趣这整个过程，可以看看，都是干货。
 
 接下来，我们就开始分析**submit()方法**：
-```
+```java
 //通过Future#get()获取出来的值，永远都为null
 public Future<?> submit(Runnable task) {
         if (task == null) throw new NullPointerException();
@@ -205,7 +205,7 @@ sumbit()方法有三个重载，主要是提交的参数不同。然后由这些
 
 
 #### invokeAll()方法
-```
+```java
 public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
         throws InterruptedException {
         //如果任务集后为空，则抛出一个NullPointerException
@@ -245,7 +245,7 @@ public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
 }
 ```
 invokeAll()方法整体分析下面，也是很简单的，可以批量提交并执行任务，当所有任务都执行完成时，返回一个保存任务状态和执行结果的Future列表。它的重载方法也是类似的，就是加入了一个超时时间，不管是所有的任务都执行完，还是已经到达超时的时间，只有两个有中满足其中一个，就会返回一个保存任务状态和执行结果的Future列表。下面简单分析一下：
-```
+```java
 public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks,
                                          long timeout, TimeUnit unit)
         throws InterruptedException {
@@ -307,7 +307,7 @@ invokeAny()方法也是执行给定的一批量任务，通是通过内部的doI
 ## 前方高能
 
 经过前面这么多知识的铺垫，是时候要开始核心**ThreadPoolExecutor线程池**的学习了，我们先来认识它的成员变量，认清了他们有助于更好地进行源码阅读。
-```
+```java
 public class ThreadPoolExecutor extends AbstractExecutorService {
     //默认为false,用于控制核心线程在空闲状态是否会被回收。
     private volatile boolean allowCoreThreadTimeOut;
@@ -347,7 +347,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
 }
 ```
 以上是线程池的核心参数，整个线程池主要就是围绕着这些参数开展的，所以牢牢记住这些参数，对阅读线程池的源码的帮助是非常大的。接下来我们了解一下线程池的状态，他和FutureTask的状态一样，也是由一组int类型变量也标识的
-```
+```java
     //ctl是控制线程的状态的，里面包含两个状态，线程的数量和线程池运行的状态
     //它是一AtomicInteger类型，由后面的操作可以得知，
     //高3位是用来保存线程池运行的状态的，低29位用于保存线程的数量，这里的限制是2^29-1，大约有5亿3千6百万左右。
@@ -386,7 +386,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
 
 如果休息够了，我们就继续吧，先从构造函数入手，ThreadPoolExecutor有四个重载的构造函数，但是我们看参数最多的一个就知道这个构造函数怎么用了，
 
-```
+```java
  public ThreadPoolExecutor(int corePoolSize,
                               int maximumPoolSize,
                               long keepAliveTime,
@@ -424,7 +424,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
 
 接下来我们先来看一个案例
 
-```
+```java
 public static void main(String[] args) throws Exception {
    ExecutorService executor = new ThreadPoolExecutor(2, 4, 10, TimeUnit.SECONDS, new ArrayBlockingQueue<>(3));
    for (int i = 1; i <= 10; ++i) {
@@ -479,7 +479,7 @@ pool-1-thread-3 我是任务5
 ![线程池使用规范](https://upload-images.jianshu.io/upload_images/1640787-fcd1b50d641e1828.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 接下来我们就开始分析execute()方法了：
-```
+```java
   public void execute(Runnable command) {
         //提交的任务command不能为null，不然会抛出NullPointerException
         if (command == null)
@@ -534,7 +534,7 @@ pool-1-thread-3 我是任务5
 * 如果无法将请求加入队列，则创建新的线程，除非创建此线程超出 maximumPoolSize，在这种情况下，任务将被拒绝。
 
 很明显要开始分析addWorker()方法了，在这个方法里面有一个语法，估计有小部分同学还没见过呢。
-```
+```java
 private boolean addWorker(Runnable firstTask, boolean core) {
         retry:
         for (;;) {//一上来就是一个无限循环，不过外面有一个标签噢
@@ -620,7 +620,7 @@ private boolean addWorker(Runnable firstTask, boolean core) {
 * 它不接收新任务,但是会继续运行任务队列中的任务
 
 真正执行任务的runWorker()方法：
-```
+```java
 final void runWorker(Worker w) {
         Thread wt = Thread.currentThread();//获取当前线程（和worker绑定的线程）
         Runnable task = w.firstTask;//用task保存在worker中的任务
@@ -671,7 +671,7 @@ final void runWorker(Worker w) {
 ```
 runWorker()方法除了会运行我们提交的任务外，还会自动取出从任务队列中的任务，与此同时还提供了任务执行之前和任务执行之后的钩子方法，并且提供了所有任务都执行完的钩子方法。通过这些钩子方法，我们就可以做我们的一些处理操作了。
 
-```
+```java
 private Runnable getTask() {
         boolean timedOut = false; // Did the last poll() time out?
 
@@ -720,7 +720,7 @@ private Runnable getTask() {
 小小地总结一下getTask()方法，首先他会不断地检查线程池的状态，如果线程池的状态为SHUTDOWN或者STOP时，它会直接返回null，同时他在特定情况下会减少工作线程数，也是返回null，比较重要的一点是，因为getTask()方法是从阻塞队列中获取任务的，所以他支持有限时间的等待poll()，和无限时间的等待take().
 
 接下来就是我们的shutdown()方法了
-```
+```java
 public void shutdown() {
         //重入锁
         final ReentrantLock mainLock = this.mainLock;
@@ -747,7 +747,7 @@ public void shutdown() {
 
 接下来我们就分析我们的本篇文章的最后一个方法吧. tryTerminate()
 
-```
+```java
 final void tryTerminate() {
         for (;;) {//线程池里面用了大量的这种无限循环
             int c = ctl.get();//获取线程池的控制状态
@@ -789,7 +789,7 @@ final void tryTerminate() {
 ```
 最后和大家简单介绍一下ThreadPoolExecutor给我们提供的四种拒绝策略:
 
-```
+```java
 ThreadPoolExecutor.AbortPolicy:默认的拒绝策略，处理程序遭到拒绝将抛出运行时RejectedExecutionException
 ThreadPoolExecutor.CallerRunsPolicy:它直接在 execute 方法的调用线程中运行被拒绝的任务；如果执行程序已关闭，则会丢弃该任务
 ThreadPoolExecutor.DiscardPolicy:不能执行的任务将被删除。
